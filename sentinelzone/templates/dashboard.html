@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIDS Dashboard | Real-Time Live Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f3f6fc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #1e2a3e; }
+        .dashboard { display: grid; grid-template-columns: 280px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        .stat-card { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .stat-value { font-size: 2.5rem; font-weight: bold; display: block; color: #0f172a; }
+        .chart-card { background: white; padding: 20px; border-radius: 15px; border: 1px solid #e2edf2; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .chart-container { position: relative; height: 280px; width: 100%; }
+        .double-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .status-badge { padding: 5px 15px; border-radius: 20px; font-weight: bold; display: inline-block; margin-top: 10px; font-size: 0.9rem; }
+        .normal { background: #e0f2e9; color: #1f7840; border: 1px solid #b8e0cc; }
+        .attack { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; animation: pulse 1s infinite; }
+        .disconnected { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        @media (max-width: 900px) { .dashboard, .double-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="stats-column">
+        <div class="stat-card">
+            <i class="fas fa-biohazard" style="color: #64748b;"></i><br>
+            <strong>ATTACKS (24h)</strong>
+            <span class="stat-value" id="totalAttacksValue">0</span>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-shield-alt" style="color: #64748b;"></i><br>
+            <strong>SYSTEM STATUS</strong><br>
+            <span id="networkStatusBadge" class="status-badge disconnected">WAITING FOR DATA...</span>
+        </div>
+        <div class="stat-card">
+            <i class="fas fa-network-wired" style="color: #64748b;"></i><br>
+            <strong>TRAFFIC RATE</strong>
+            <span class="stat-value" id="trafficVolumeValue">0</span>
+            <small style="color: #64748b; font-weight: bold;">Mbps</small>
+        </div>
+    </div>
+        
+    <div class="charts-area">
+        <div class="chart-card">
+            <h3><i class="fas fa-chart-line"></i> Network Traffic Load</h3>
+            <div class="chart-container"><canvas id="trafficLineChart"></canvas></div>
+        </div>
+        <div class="double-grid">
+            <div class="chart-card">
+                <h3><i class="fas fa-chart-pie"></i> Zone Distribution</h3>
+                <div class="chart-container"><canvas id="zonePieChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3><i class="fas fa-poll"></i> Attack Vectors</h3>
+                <div class="chart-container"><canvas id="attackBarChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let lineChart, pieChart, barChart;
+
+    // Stable zone → color map so colors are always consistent
+    const zoneColors = {
+        'Admin':    '#3b82f6',
+        'Staff':    '#10b981',
+        'Student':  '#f59e0b',
+        'IoT':      '#ef4444',
+        'Server':   '#8b5cf6',
+        'External': '#06b6d4'
+    };
+    const defaultZoneLabels = Object.keys(zoneColors);
+    const defaultZoneColors = Object.values(zoneColors);
+
+    // Bar chart color palette
+    const barColors = [
+        '#ef4444', '#f59e0b', '#3b82f6', '#10b981',
+        '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'
+    ];
+
+    function initCharts() {
+        // Traffic Line Chart
+        lineChart = new Chart(document.getElementById('trafficLineChart'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Traffic (Mbps)', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // Zone Pie Chart — initialized with real zone labels and colors
+        pieChart = new Chart(document.getElementById('zonePieChart'), {
+            type: 'pie',
+            data: {
+                labels: defaultZoneLabels,
+                datasets: [{
+                    data: defaultZoneLabels.map(() => 0),
+                    backgroundColor: defaultZoneColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } } }
+            }
+        });
+
+        // Attack Bar Chart
+        barChart = new Chart(document.getElementById('attackBarChart'), {
+            type: 'bar',
+            data: { labels: [], datasets: [{ label: 'Attacks', data: [], backgroundColor: [], borderRadius: 5 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    async function updateData() {
+        try {
+            const res = await fetch("/api/data");
+            if (!res.ok) throw new Error(`Server responded with status: ${res.status}`);
+            
+            const data = await res.json();
+            render(data);
+            
+        } catch (err) {
+            console.error("🚨 Backend Connection Error:", err);
+            const status = document.getElementById("networkStatusBadge");
+            status.innerText = "⚠️ API DISCONNECTED";
+            status.className = "status-badge disconnected";
+        }
+    }
+
+    function render(data) {
+        // 1. Numerical Stats
+        document.getElementById("totalAttacksValue").innerText = data.total_attacks || 0;
+        document.getElementById("trafficVolumeValue").innerText = data.total_traffic || 0;
+
+        // 2. Status Badge Logic
+        const status = document.getElementById("networkStatusBadge");
+        if (data.total_attacks > 500) {
+            status.innerText = "⚠️ ATTACK DETECTED";
+            status.className = "status-badge attack";
+        } else {
+            status.innerText = "● NORMAL";
+            status.className = "status-badge normal";
+        }
+
+        // 3. PIE CHART — use stable zone→color map for reliable coloring
+        if (data.zone_distribution) {
+            const labels = Object.keys(data.zone_distribution);
+            const dataVals = Object.values(data.zone_distribution).map(v => Number(v));
+            const total = dataVals.reduce((sum, val) => sum + val, 0);
+
+            if (total === 0) {
+                // Show placeholder when no data exists yet
+                pieChart.data.labels = ['No Data'];
+                pieChart.data.datasets[0].data = [1];
+                pieChart.data.datasets[0].backgroundColor = ['#e2e8f0'];
+            } else {
+                pieChart.data.labels = labels;
+                pieChart.data.datasets[0].data = dataVals;
+                // Use the stable zone→color map; fallback to gray for unknown zones
+                pieChart.data.datasets[0].backgroundColor = labels.map(
+                    label => zoneColors[label] || '#94a3b8'
+                );
+            }
+            pieChart.update('none');  // skip animation to prevent flicker
+        }
+
+        // 4. Line Chart Update
+        if (data.traffic_timeseries) {
+            lineChart.data.labels = data.traffic_timeseries.map((_, i) => i + ":00");
+            lineChart.data.datasets[0].data = data.traffic_timeseries.map(v => Number(v));
+            lineChart.update();
+        }
+
+        // 5. Bar Chart Update — assign distinct colors per bar
+        if (data.attack_types) {
+            const attackLabels = Object.keys(data.attack_types);
+            barChart.data.labels = attackLabels;
+            barChart.data.datasets[0].data = Object.values(data.attack_types).map(v => Number(v));
+            barChart.data.datasets[0].backgroundColor = attackLabels.map(
+                (_, i) => barColors[i % barColors.length]
+            );
+            barChart.update();
+        }
+    }
+
+    // Initialize and start fetching
+    initCharts();
+    updateData(); // First immediate fetch
+    setInterval(updateData, 4000); // Fetch real data every 4 seconds
+</script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentinelZone — Login</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0e1a;
+    color: #e0e6f0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-box {
+    width: 380px;
+    border: 1px solid #1e3a5f;
+    border-radius: 4px;
+    padding: 40px;
+    background: #0d1526;
+  }
+
+  .logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .logo-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: #4fc3f7;
+    letter-spacing: 3px;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: #546e7a;
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #26c6da;
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: blink 1.4s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.2; }
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    color: #546e7a;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    margin-top: 18px;
+  }
+
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    background: #111827;
+    border: 1px solid #1e3a5f;
+    border-radius: 3px;
+    color: #e0e6f0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: #4fc3f7; }
+
+  .error {
+    background: #1a0a0a;
+    border: 1px solid #c62828;
+    border-radius: 3px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #ef9a9a;
+    margin-top: 16px;
+    display: none;
+  }
+
+  .error.show {
+    display: block;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 24px;
+    padding: 12px;
+    background: #1565c0;
+    border: none;
+    border-radius: 3px;
+    color: #e0e6f0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button:hover { background: #1976d2; }
+
+  .footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 10px;
+    color: #263238;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="login-box">
+  <div class="logo">
+    <div class="logo-title">
+      <span class="status-dot"></span>NETWORK INTRUSION DETECTION SYSTEM
+    </div>
+    <div class="logo-sub">Detecting Network Threats in Real Time for Campus Safety</div>
+  </div>
+
+  <form id="loginForm">
+    <label>USERNAME</label>
+    <input type="text" id="username" name="username" placeholder="Enter username" autofocus>
+
+    <label>PASSWORD</label>
+    <input type="password" id="password" name="password" placeholder="Enter password">
+
+    <div id="errorMsg" class="error"></div>
+
+    <button type="submit">ACCESS SYSTEM</button>
+  </form>
+
+  <div class="footer">AUTHORIZED ACCESS ONLY</div>
+</div>
+
+<script>
+  // Hardcoded valid credentials (change as needed)
+  const VALID_USERNAME = "admin";
+  const VALID_PASSWORD = "admin";
+
+  // Get form elements
+  const form = document.getElementById('loginForm');
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const errorDiv = document.getElementById('errorMsg');
+
+  // Handle form submission
+  // form.addEventListener('submit', function(event) {
+  //   // Prevent actual HTTP POST to /login
+  //   event.preventDefault();
+
+  //   // Get input values
+  //   const username = usernameInput.value.trim();
+  //   const password = passwordInput.value;
+
+  //   // Check credentials
+  //   // if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+  //   //   // Credentials match — redirect to dashboard
+  //   //   window.location.href = "/dashboard.html";
+  //   // } else {
+  //   //   // Show error message
+  //   //   errorDiv.textContent = "❌ ACCESS DENIED: Invalid username or password.";
+  //   //   errorDiv.classList.add('show');
+  //   //   // Clear password field for security
+  //   //   passwordInput.value = '';
+  //   //   // Optionally shake the login box (add a small visual feedback)
+  //   //   const loginBox = document.querySelector('.login-box');
+  //   //   loginBox.style.transform = 'translateX(4px)';
+  //   //   setTimeout(() => { loginBox.style.transform = ''; }, 100);
+  //   // }
+  // });
+  form.addEventListener('submit', async function(event) {
+  event.preventDefault();
+
+  const formData = new FormData(form);
+
+  const response = await fetch('/login', {
+    method: 'POST',
+    body: formData
+  });
+
+  const data = await response.json();
+  if (data.status === 'success') {
+    window.location.href = '/dashboard';
+  } else {
+    errorDiv.textContent = data.message || "❌ ACCESS DENIED: Invalid username or password.";
+    errorDiv.classList.add('show');
+  }
+});
+
+  // Clear error when user starts typing again
+  usernameInput.addEventListener('input', function() {
+    errorDiv.classList.remove('show');
+  });
+  passwordInput.addEventListener('input', function() {
+    errorDiv.classList.remove('show');
+  });
+</script>
+
+
+</body>
+</html>
